@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect,useState } from 'react'
 import './App.css'
 
 function TaskItem(props) {
@@ -9,17 +9,26 @@ function TaskItem(props) {
   function handleDelete() {
     props.onDelete(props.task.id)
   }
-
+  
+  function handleEdit(){  /*编辑按钮*/
+    props.onEdit(props.task)
+  }
   return (
     <li className={`task-item ${props.task.done ? 'done' : ''}`}>
       <span>
         {props.task.name} - {props.task.done ? '已完成' : '未完成'}
+        {' ｜ '}
+        优先级：{props.task.priority}
+        {' ｜ '}
+        截止：{props.task.due_date || '未设置'}
       </span>
 
       <div className="task-actions">
         <button className="toggle-button" onClick={handleToggle}>
           切换状态
         </button>
+
+        <button onClick={handleEdit}>编辑</button>
 
         <button className="delete-button" onClick={handleDelete}>
           删除
@@ -38,6 +47,7 @@ function TaskList(props) {
           task={task}
           onDelete={props.onDelete}
           onToggle={props.onToggle}
+          onEdit={props.onEdit}
         />
       ))}
     </ul>
@@ -46,6 +56,8 @@ function TaskList(props) {
 
 function TaskForm(props) {
   const [newTask, setNewTask] = useState('')
+  const [priority, setPriority] = useState('medium')
+  const [dueDate, setDueDate] = useState('')
   const [error, setError] = useState('')
 
   function handleAdd() {
@@ -56,9 +68,11 @@ function TaskForm(props) {
       return
     }
 
-    props.onAdd(name)
+    props.onAdd(name, priority, dueDate)
     setNewTask('')
     setError('')
+    setPriority('medium')
+    setDueDate('')
   }
 
   return (
@@ -67,6 +81,21 @@ function TaskForm(props) {
         value={newTask}
         onChange={(event) => setNewTask(event.target.value)}
         placeholder="输入新任务"
+      />
+
+      <select
+        value={priority}
+        onChange={(event) => setPriority(event.target.value)}
+        >
+        <option value="low">低优先级</option>
+        <option value="medium">中优先级</option>
+        <option value="high">高优先级</option>  
+      </select>
+
+      <input
+        type="date"
+        value={dueDate}
+        onChange={(event) => setDueDate(event.target.value)}
       />
 
       <button className="add-button" onClick={handleAdd}>
@@ -78,53 +107,326 @@ function TaskForm(props) {
   )
 }
 
-function App() {
-  const [tasks, setTasks] = useState([
-    { id: 1, name: '学习 React Props', done: false },
-    { id: 2, name: '学习 useState', done: false },
-    { id: 3, name: '完成 LeetCode 哈希题', done: false },
-  ])
+  function EditTaskForm(props) {
+     const [name, setName] = useState(props.task.name)
+     const [priority, setPriority] = useState(props.task.priority || 'medium')
+     const [dueDate, setDueDate] = useState(props.task.due_date || '')
+     const [error, setError] = useState('')
 
-  function addTask(name) {
-    const task = {
-      id: Date.now(),
-      name: name,
-      done: false,
+     function handleSave() {
+        const trimmedName = name.trim()
+
+        if (trimmedName === '') {
+           setError('任务名称不能为空')
+           return
+        }
+
+      props.onSave(
+         props.task.id,
+         trimmedName,
+         priority,
+        dueDate
+      )
+  }
+
+  return (
+    <section className="edit-form">
+      <h3>编辑任务</h3>
+
+      <input
+        value={name}
+        onChange={(event) => setName(event.target.value)}
+        placeholder="输入任务名称"
+      />
+
+      <select
+        value={priority}
+        onChange={(event) => setPriority(event.target.value)}
+      >
+        <option value="low">低优先级</option>
+        <option value="medium">中优先级</option>
+        <option value="high">高优先级</option>
+      </select>
+
+      <input
+        type="date"
+        value={dueDate}
+        onChange={(event) => setDueDate(event.target.value)}
+      />
+
+      {error && <p className="error-message">{error}</p>}
+
+      <div className="edit-actions">
+        <button onClick={handleSave}>保存修改</button>
+        <button onClick={props.onCancel}>取消</button>
+      </div>
+    </section>
+  )
+}
+
+function App() {
+  const [tasks, setTasks] = useState([])
+  const [loading,setLoading]= useState(true)  /* 是否正在加载  正在加载返回true  加载结束返回false*/
+  const [loadError,setLoadError] = useState('')   /* 加载失败*/
+  const [actionError, setActionError] = useState('')  /* 保存“添加、删除、切换状态”等操作失败*/
+  const [statusFilter, setStatusFilter] = useState('all') /*按什么完成状态筛选*/ 
+  const [priorityFilter, setPriorityFilter] = useState('all') /*优先级*/
+  const [dueDateFilter, setDueDateFilter] = useState('') /*截止日期*/
+  const [editingTask, setEditingTask] = useState(null)  /*正在编辑的任务*/
+  const totalCount =tasks.length
+  const completedCount = tasks.filter((task) => task.done).length
+  const unfinishedCount = tasks.filter((task) => !task.done).length
+
+  const filteredTasks = tasks.filter((task) =>{  /*filteredTasks筛选后的任务列表*/
+     if (statusFilter === 'done' && !task.done){
+      return false
+     }
+
+     if (statusFilter === 'unfinished' && task.done){
+      return false
+     }
+
+     if (priorityFilter !== 'all' && task.priority !== priorityFilter){
+      return false
+     }
+
+     if (dueDateFilter !== '' && task.due_date !== dueDateFilter) {
+        return false
+     }
+
+     return true
+  })
+  
+  
+  useEffect(() => {
+    async function loadTasks(){
+      try{
+        const response = await fetch('http://127.0.0.1:8000/tasks')
+
+        if(!response.ok){
+          throw new Error('读取任务失败')
+        }
+
+        const data =await response.json()
+        setTasks(data)
+      }catch{
+        setLoadError('任务加载失败，请确认后端是否已启动')
+      }finally{
+        setLoading(false)
+      }
     }
 
-    setTasks([...tasks, task])
+    loadTasks()
+  },[])
+
+  async  function addTask(name, priority, dueDate) {
+     setActionError('')
+     try{
+         const response = await fetch('http://127.0.0.1:8000/tasks',{
+         method :'POST',
+         headers:{
+            'Content-Type':'application/json',
+         },      
+         body: JSON.stringify({
+            name:name,
+            done:false,
+            priority: priority,
+            due_date: dueDate === '' ? null : dueDate,
+           
+
+        }),
+     })
+     
+     if (!response.ok) {
+      throw new Error('添加任务失败')
+     } 
+
+       const newTask=await response.json()
+    
+      setTasks([...tasks, newTask])
+     }catch{
+     setActionError('添加任务失败，请确认后端是否已启动')
+    }
   }
 
-  function deleteTask(id) {
-    setTasks(tasks.filter((task) => task.id !== id))
-  }
+  async function deleteTask(id) {
+    setActionError('')
+    try{
+         const response = await fetch(
+           `http://127.0.0.1:8000/tasks/${id}`,
+           {
+             method: 'DELETE',
+          }
+         )
+         if (!response.ok) {
+             throw new Error('删除任务失败')
+     }
+  
+         setTasks(tasks.filter((task) => task.id !== id))
+      }catch{
+        setActionError('删除任务失败，请确认后端是否已启动')
+      } 
+    }
+    
 
-  function toggleTask(id) {
-    setTasks(
+  async function toggleTask(id) {
+    const currentTask = tasks.find((task) => task.id ===id)
+
+    if (!currentTask){
+      throw new Error('切换状态失败')
+    }
+    setActionError('')
+    try{
+           const response = await fetch(
+                `http://127.0.0.1:8000/tasks/${id}`,
+                {
+                    method :'PATCH',
+                    headers:{
+                       'Content-Type': 'application/json',
+                     },
+                    body:JSON.stringify({
+                       done:!currentTask.done,
+                     }),
+                }
+            )
+    
+    
+           if (!response.ok){
+                  throw new Error('切换状态失败')
+              }
+
+           const updatedTask = await response.json()
+
+           setTasks(
+                tasks.map((task) =>{
+                if (task.id===id){
+                     return { ...task, ...updatedTask }
+                }
+                return task
+                })
+              ) 
+           }catch{
+            setActionError('切换状态失败，请确认后端是否已启动')
+           }
+    } 
+  
+  function startEdit(tasks){
+    setEditingTask(tasks)
+  }  
+  
+  async function updateTask(id, name, priority, dueDate) {
+     setActionError('')
+
+   try {
+    const response = await fetch(
+      `http://127.0.0.1:8000/tasks/${id}`,
+      {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: name,
+          priority: priority,
+          due_date: dueDate === '' ? null : dueDate,
+        }),
+      }
+    )
+   if (!response.ok) {
+      throw new Error('修改任务失败')
+    }
+    
+   const updatedTask = await response.json()
+  
+   setTasks(
       tasks.map((task) => {
         if (task.id === id) {
-          return { ...task, done: !task.done }
+          return { ...task, ...updatedTask }
         }
 
         return task
       })
     )
-  }
+
+    setEditingTask(null)
+   } catch {
+    setActionError('修改任务失败，请确认后端是否已启动')
+   }
+}
 
   return (
     <main className="app">
       <h1>我的 AI 学习管理系统</h1>
       <p className="subtitle">管理今天的学习任务</p>
-
+      <p className="task-summary">
+          共 {totalCount} 项任务｜已完成 {completedCount} 项｜未完成 {unfinishedCount} 项
+      </p>
       <TaskForm onAdd={addTask} />
+
+      {editingTask && (
+        <EditTaskForm
+          key={editingTask.id}
+          task={editingTask}
+          onSave={updateTask}
+          onCancel={() => setEditingTask(null)}
+        />
+      )}
+
+      <section className="filter-panel">
+         <label>
+            状态
+            <select
+               value={statusFilter}
+               onChange={(event)=> setStatusFilter(event.target.value)}
+            >
+               <option value="all">全部</option>
+               <option value="done">已完成</option>
+               <option value="unfinished">未完成</option>
+              </select>
+          </label>
+
+         <label>
+            优先级
+            <select
+               value={priorityFilter}
+               onChange={(event) => setPriorityFilter(event.target.value)}
+            >
+               <option value="all">全部</option>
+               <option value="low">低</option>
+               <option value="medium">中</option>
+               <option value="high">高</option>
+            </select>
+          </label>  
+
+         <label>
+            截止日期
+            <input        /*  <input />输入框   */
+               type="date" /*普通输入框变成日期选择器*/
+               value={dueDateFilter}
+               onChange={(event) => setDueDateFilter(event.target.value)}
+            />
+          </label>  
+      </section>
+      {actionError && <p className="error-message">{actionError}</p>}
 
       <h2>今日任务</h2>
 
-      <TaskList
-        tasks={tasks}
-        onDelete={deleteTask}
-        onToggle={toggleTask}
-      />
+      {loading && <p className="loading-message">正在加载任务...</p>}
+      {loadError && <p className="error-message">{loadError}</p>}
+      {!loading && !loadError &&  tasks.length === 0 && (
+        <p className="empty-message">暂无任务，添加一个开始。</p>
+      )}
+      {!loading && !loadError &&  tasks.length > 0 &&filteredTasks.length === 0 && (
+        <p className="empty-message">没有符合筛选条件的任务。</p>
+      )}
+      {!loading && !loadError && filteredTasks.length > 0 && (
+        <TaskList
+          tasks={filteredTasks}
+          onDelete={deleteTask}
+          onToggle={toggleTask}
+          onEdit={startEdit}
+        />
+      )}
     </main>
   )
 }

@@ -38,6 +38,12 @@ h1 {
   border-color: #2563eb;
 }
 
+.task-summary {
+  margin: 0 0 24px;
+  color: #475569;
+  text-align: center;
+}
+
 button {
   padding: 9px 12px;
   border: 0;
@@ -98,4 +104,71 @@ h2 {
 .task-actions {
   display: flex;
   gap: 8px;
+}
+
+.loading-message {
+  margin: 20px 0;
+  color: #475569;
+  text-align: center;
+}
+
+.empty-message {
+  margin: 20px 0;
+  color: #64748b;
+  text-align: center;
+}
+
+.filter-panel {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin: 20px 0;
+}
+
+.filter-panel label {
+  display: grid;
+  gap: 6px;
+  color: #475569;
+  font-size: 14px;
+}
+
+.filter-panel select,
+.filter-panel input {
+  padding: 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: white;
+}
+
+@media (max-width: 560px) {
+  .filter-panel {
+    grid-template-columns: 1fr;
+  }
+}
+
+.edit-form {
+  display: grid;
+  gap: 12px;
+  margin: 16px 0;
+  padding: 16px;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  background: #f8fafc;
+}
+
+.edit-form input,
+.edit-form select {
+  padding: 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+}
+
+.edit-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.task-item button {
+  white-space: nowrap;
+  min-width: 64px;
 }
