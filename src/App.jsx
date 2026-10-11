@@ -204,9 +204,32 @@ function App() {
   useEffect(() => {
     async function loadTasks(){
       try{
-        const response = await fetch(
-          `http://127.0.0.1:8000/tasks?page=${currentPage}&size=2&sort_by=due_date&sort_order=asc`
-        )
+             const params = new URLSearchParams({
+                 page: String(currentPage),
+                 size: "2",
+                 sort_by: "due_date",
+                 sort_order: "asc",
+            })
+
+             if (statusFilter === "done") {
+              params.set("done", "true")
+             }
+
+            if (statusFilter === "unfinished") {
+              params.set("done", "false")
+            }
+
+            if (priorityFilter !== "all") {
+              params.set("priority", priorityFilter)
+            }
+
+            if (dueDateFilter !== "") {
+              params.set("due_date", dueDateFilter)
+            }
+
+            const response = await fetch(
+              `http://127.0.0.1:8000/tasks?${params.toString()}`
+            )        
 
         if(!response.ok){
           throw new Error('读取任务失败')
@@ -224,7 +247,7 @@ function App() {
     }
 
     loadTasks()
-  },[currentPage])
+  },[currentPage, statusFilter, priorityFilter, dueDateFilter])
 
   async  function addTask(name, priority, dueDate) {
      setActionError('')
@@ -384,7 +407,13 @@ function App() {
             状态
             <select
                value={statusFilter}
-               onChange={(event)=> setStatusFilter(event.target.value)}
+               onChange={(event)=>{
+                    setStatusFilter(event.target.value)
+                    setCurrentPage(1)
+                  }} 
+                   
+
+               
             >
                <option value="all">全部</option>
                <option value="done">已完成</option>
@@ -396,7 +425,10 @@ function App() {
             优先级
             <select
                value={priorityFilter}
-               onChange={(event) => setPriorityFilter(event.target.value)}
+               onChange={(event) => {
+                    setPriorityFilter(event.target.value)
+                    setCurrentPage(1)
+                  }}
             >
                <option value="all">全部</option>
                <option value="low">低</option>
@@ -410,7 +442,10 @@ function App() {
             <input        /*  <input />输入框   */
                type="date" /*普通输入框变成日期选择器*/
                value={dueDateFilter}
-               onChange={(event) => setDueDateFilter(event.target.value)}
+               onChange={(event) => {
+                    setDueDateFilter(event.target.value)
+                    setCurrentPage(1)
+                  }}  
             />
           </label>  
       </section>
