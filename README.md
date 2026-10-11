@@ -4,8 +4,7 @@
 
 记录要学的内容，比如学习 React、FastAPI、刷算法题。这个项目可以添加任务、修改任务、删除任务、标记完成，还可以按优先级和截止日期筛选任务。
 
-任务数据不是只放在网页里，而是保存到了 SQLite 数据库中，刷新页面后数据还在。
-
+任务数据不是只放在网页里，而是保存到了 MySQL 数据库中，刷新页面后数据还在。
 ## 目前实现的功能
 
 - 添加任务
@@ -17,6 +16,8 @@
 - 按完成状态筛选任务
 - 按优先级筛选任务
 - 按截止日期筛选任务
+- 按截止日期或任务编号排序
+- 分页显示任务
 - 显示任务总数、已完成数量和未完成数量
 - 页面加载中、请求失败、空任务列表时有提示
 - 刷新浏览器后任务数据不会丢失
@@ -35,7 +36,9 @@
 
 - Python
 - FastAPI
-- SQLite
+- MySQL
+- PyMySQL
+- python-dotenv
 - Pydantic
 - Uvicorn
 
@@ -53,13 +56,15 @@ ai-study-react/
 
 day7_api/
 ├── main.py
-└── tasks.db
+├── database.py
+├── .env.example
+└── test_mysql.py
 
 App.jsx 主要负责页面显示、任务状态和调用后端接口。
-main.py 主要负责 FastAPI 接口和 SQLite 数据库操作。
+main.py 主要负责 FastAPI 接口和 任务的增删改查操作。
+database.py 主要负责连接 MySQL 数据库。
 
-
-怎么运行
+##怎么运行
 
 启动前端
 进入前端项目目录：
@@ -126,13 +131,13 @@ DELETE /tasks/{task_id}
 前后端是怎么配合的
 页面打开后：
 React 请求 FastAPI
-→ FastAPI 从 SQLite 读取任务
+→ FastAPI 从 MySQL 读取任务
 → 把任务数据返回给 React
 → React 把任务显示在页面上
 
 用户添加、编辑、删除或切换任务状态时：
 React 把操作发给 FastAPI
-→ FastAPI 修改 SQLite 里的数据
+→ FastAPI 修改 MySQL 里的数据
 → FastAPI 返回结果
 → React 更新页面
 
@@ -141,4 +146,4 @@ React 把操作发给 FastAPI
 - 页面刚加载时会显示“正在加载任务”
 - 后端没启动或请求失败时，页面会显示错误提示
 - 添加空任务、编辑空任务时会提示任务名称不能为空
-- 修改任务后刷新页面，数据仍然从 SQLite 中正常读取
+- 修改任务后刷新页面，数据仍然从 MySQL 中正常读取
