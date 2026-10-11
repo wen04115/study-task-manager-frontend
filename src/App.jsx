@@ -173,6 +173,9 @@ function App() {
   const [priorityFilter, setPriorityFilter] = useState('all') /*优先级*/
   const [dueDateFilter, setDueDateFilter] = useState('') /*截止日期*/
   const [editingTask, setEditingTask] = useState(null)  /*正在编辑的任务*/
+  const [currentPage, setCurrentPage] = useState(1)
+  const [total, setTotal] = useState(0)
+  const [totalPages, setTotalPages] = useState(1)
   const totalCount =tasks.length
   const completedCount = tasks.filter((task) => task.done).length
   const unfinishedCount = tasks.filter((task) => !task.done).length
@@ -201,14 +204,18 @@ function App() {
   useEffect(() => {
     async function loadTasks(){
       try{
-        const response = await fetch('http://127.0.0.1:8000/tasks')
+        const response = await fetch(
+          `http://127.0.0.1:8000/tasks?page=${currentPage}&size=2&sort_by=due_date&sort_order=asc`
+        )
 
         if(!response.ok){
           throw new Error('读取任务失败')
         }
 
         const data =await response.json()
-        setTasks(data)
+        setTasks(data.items)
+        setTotal(data.total)
+        setTotalPages(data.total_pages)
       }catch{
         setLoadError('任务加载失败，请确认后端是否已启动')
       }finally{
@@ -217,7 +224,7 @@ function App() {
     }
 
     loadTasks()
-  },[])
+  },[currentPage])
 
   async  function addTask(name, priority, dueDate) {
      setActionError('')
@@ -426,6 +433,29 @@ function App() {
           onToggle={toggleTask}
           onEdit={startEdit}
         />
+      )}
+      {totalPages > 1 && (
+        <div className="pagination">
+          <button
+            type="button"
+            disabled={currentPage === 1}
+            onClick={() => setCurrentPage(currentPage - 1)}
+          >
+            上一页
+          </button>
+
+          <span>
+             第 {currentPage} / {totalPages} 页（共 {total} 条）
+          </span>
+
+          <button
+               type="button"
+               disabled={currentPage === totalPages}
+               onClick={() => setCurrentPage(currentPage + 1)}
+          >
+            下一页
+          </button>
+       </div>
       )}
     </main>
   )
