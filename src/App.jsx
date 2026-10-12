@@ -389,7 +389,7 @@ function App() {
       <h1>学习任务管理系统</h1>
       <p className="subtitle">管理今天的学习任务</p>
       <p className="task-summary">
-          共 {totalCount} 项任务｜已完成 {completedCount} 项｜未完成 {unfinishedCount} 项
+          本页 {totalCount} 项任务 | 本页已完成 {completedCount} 项 | 本页未完成 {unfinishedCount} 项
       </p>
       <TaskForm onAdd={addTask} />
 
