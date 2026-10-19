@@ -1,50 +1,63 @@
 # 学习任务管理系统前端
 
-基于 React 和 Vite 的学习任务管理系统前端，调用 FastAPI 后端接口完成任务管理。
+基于 React 和 Vite，调用 FastAPI 后端完成用户认证与任务管理。
 
-后端仓库：[study-task-manager-backend](https://github.com/wen04115/study-task-manager-backend)
+后端：[study-task-manager-backend](https://github.com/wen04115/study-task-manager-backend)
 
 ## 核心功能
 
-- 新增、编辑、删除任务
-- 设置任务优先级和截止日期
-- 切换已完成 / 未完成状态
-- 按状态、优先级、截止日期筛选任务
-- 支持排序和分页展示
-- 展示任务总数、已完成和未完成数量
-- 请求加载、失败和空列表状态提示
+- 用户注册、登录和退出
+- 请求自动携带 JWT 登录凭证
+- 登录凭证失效时返回登录页面并提示
+- 新增、编辑、删除任务，切换完成状态
+- 设置优先级和截止日期
+- 按状态、优先级、截止日期筛选及分页展示
+- 展示当前页任务数量和完成情况
 
 ## 技术栈
 
-- React
-- JavaScript
-- Vite
-- CSS
-- Fetch API
-
-## 前后端协作
-
-React 通过 Fetch API 调用 FastAPI 接口；后端读写 MySQL 后返回任务数据，前端根据响应更新页面。
+React、JavaScript、Vite、CSS、Fetch API。
 
 ## 本地运行
 
-启动后端：
-```powershell
-cd day7_api
-uvicorn main:app --reload --port 8000
+先按照后端 README 启动 MySQL 和 FastAPI，后端地址为：
 
-启动前端：
-cd ai-study-react
+http://127.0.0.1:8000
+
+在前端项目根目录安装依赖并启动：
+
+```powershell
 npm install
 npm run dev
+```
 
-浏览器访问：
-http://localhost:5173
+浏览器打开终端实际显示的 Local 地址。
 
-设计说明
-- 前后端端口不同，后端通过 CORS 允许前端请求。
-- 任务数据持久化到 MySQL，刷新页面后仍可读取。
-- 前端对加载失败、空任务和空名称等情况提供提示。
+如果端口被占用，Vite 可能选择其他端口；后端 CORS 配置需要允许对应的前端地址。
+
+## 登录与数据隔离
+
+- 没有账号时，可在登录页面切换到注册表单
+- 注册成功后，使用新账号登录
+- JWT 只保存在页面内存中，刷新后需要重新登录
+- 退出登录会清除前端登录状态和任务页面状态
+- 退出不会在服务端立即作废已签发的 JWT
+- 任务归属由后端根据当前登录用户确定
+- 用户隔离由后端执行，不依赖前端隐藏数据
+
+## 手动验证
+
+1. 注册并登录账号 A，创建一条测试任务。
+2. 验证编辑、切换状态和删除功能。
+3. 退出后登录账号 B，确认看不到账号 A 的任务。
+4. 刷新页面，确认需要重新登录。
 
 ## 项目截图
+
+### 登录与注册入口
+
+![登录页面](./login-page.png)
+
+### 任务管理
+
 ![任务管理页面](./task-manager-page.png)

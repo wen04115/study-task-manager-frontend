@@ -1,4 +1,5 @@
-import { useEffect,useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
+import LoginForm from './LoginForm'
 import './App.css'
 
 function TaskItem(props) {
@@ -164,7 +165,7 @@ function TaskForm(props) {
   )
 }
 
-function App() {
+function TaskManager({ token, onLogout }) {
   const [tasks, setTasks] = useState([])
   const [loading,setLoading]= useState(true)  /* 是否正在加载  正在加载返回true  加载结束返回false*/
   const [loadError,setLoadError] = useState('')   /* 加载失败*/
@@ -179,6 +180,23 @@ function App() {
   const totalCount =tasks.length
   const completedCount = tasks.filter((task) => task.done).length
   const unfinishedCount = tasks.filter((task) => !task.done).length
+  
+  const fetchWithAuth = useCallback(async (url, options = {}) => {
+    const response = await fetch(url, {
+      ...options,
+      headers: {
+        ...options.headers,
+        Authorization: `Bearer ${token}`,
+      },
+    })
+
+    if (response.status === 401) {
+      onLogout('登录状态已失效，请重新登录')
+      throw new Error('登录状态已失效')
+    }
+
+    return response
+  }, [token, onLogout])
 
   const filteredTasks = tasks.filter((task) =>{  /*filteredTasks筛选后的任务列表*/
      if (statusFilter === 'done' && !task.done){
@@ -227,7 +245,7 @@ function App() {
               params.set("due_date", dueDateFilter)
             }
 
-            const response = await fetch(
+            const response = await fetchWithAuth(
               `http://127.0.0.1:8000/tasks?${params.toString()}`
             )        
 
@@ -247,12 +265,18 @@ function App() {
     }
 
     loadTasks()
-  },[currentPage, statusFilter, priorityFilter, dueDateFilter])
+    }, [
+    currentPage,
+    statusFilter,
+    priorityFilter,
+    dueDateFilter,
+    fetchWithAuth,
+  ])
 
   async  function addTask(name, priority, dueDate) {
      setActionError('')
      try{
-         const response = await fetch('http://127.0.0.1:8000/tasks',{
+         const response = await fetchWithAuth('http://127.0.0.1:8000/tasks',{
          method :'POST',
          headers:{
             'Content-Type':'application/json',
@@ -282,7 +306,7 @@ function App() {
   async function deleteTask(id) {
     setActionError('')
     try{
-         const response = await fetch(
+         const response = await fetchWithAuth(
            `http://127.0.0.1:8000/tasks/${id}`,
            {
              method: 'DELETE',
@@ -307,7 +331,7 @@ function App() {
     }
     setActionError('')
     try{
-           const response = await fetch(
+           const response = await fetchWithAuth(
                 `http://127.0.0.1:8000/tasks/${id}`,
                 {
                     method :'PATCH',
@@ -348,7 +372,7 @@ function App() {
      setActionError('')
 
    try {
-    const response = await fetch(
+    const response = await fetchWithAuth(
       `http://127.0.0.1:8000/tasks/${id}`,
       {
         method: 'PATCH',
@@ -388,6 +412,9 @@ function App() {
     <main className="app">
       <h1>学习任务管理系统</h1>
       <p className="subtitle">管理今天的学习任务</p>
+      <button type="button" onClick={() => onLogout()}>
+          退出登录
+      </button>
       <p className="task-summary">
           本页 {totalCount} 项任务 | 本页已完成 {completedCount} 项 | 本页未完成 {unfinishedCount} 项
       </p>
@@ -493,6 +520,43 @@ function App() {
        </div>
       )}
     </main>
+  )
+}
+
+
+function App() {
+  const [token, setToken] = useState('')
+  const [authMessage, setAuthMessage] = useState('')
+
+  const handleLogout = useCallback((message = '') => {
+    setToken('')
+    setAuthMessage(message)
+  }, [])
+
+  if (!token) {
+    return (
+      <main className="app">
+        <h1>学习任务管理系统</h1>
+
+        {authMessage && (
+          <p className="error-message">{authMessage}</p>
+        )}
+
+        <LoginForm
+          onLogin={(newToken) => {
+            setAuthMessage('')
+            setToken(newToken)
+          }}
+        />
+      </main>
+    )
+  }
+
+  return (
+    <TaskManager
+      token={token}
+      onLogout={handleLogout}
+    />
   )
 }
 
