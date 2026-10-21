@@ -60,20 +60,39 @@ function TaskForm(props) {
   const [priority, setPriority] = useState('medium')
   const [dueDate, setDueDate] = useState('')
   const [error, setError] = useState('')
+  const [submitting, setSubmitting] = useState(false)
 
-  function handleAdd() {
+  async function handleAdd() {
+    if (submitting) return
+
     const name = newTask.trim()
 
-    if (name === '') {
+    if (!name) {
       setError('任务名称不能为空')
       return
     }
 
-    props.onAdd(name, priority, dueDate)
-    setNewTask('')
+    if (name.length > 255) {
+      setError('任务名称不能超过255个字符')
+      return
+    }
+
     setError('')
-    setPriority('medium')
-    setDueDate('')
+    setSubmitting(true)
+
+    try {
+      const success = await props.onAdd(name, priority, dueDate)
+
+      if (success) {
+        setNewTask('')
+        setPriority('medium')
+        setDueDate('')
+      }
+    } catch {
+      setError('添加失败，请稍后重试')
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   return (
@@ -82,25 +101,32 @@ function TaskForm(props) {
         value={newTask}
         onChange={(event) => setNewTask(event.target.value)}
         placeholder="输入新任务"
+        disabled={submitting}
       />
 
       <select
         value={priority}
         onChange={(event) => setPriority(event.target.value)}
-        >
+        disabled={submitting}
+      >
         <option value="low">低优先级</option>
         <option value="medium">中优先级</option>
-        <option value="high">高优先级</option>  
+        <option value="high">高优先级</option>
       </select>
 
       <input
         type="date"
         value={dueDate}
         onChange={(event) => setDueDate(event.target.value)}
+        disabled={submitting}
       />
 
-      <button className="add-button" onClick={handleAdd}>
-        添加任务
+      <button
+        className="add-button"
+        onClick={handleAdd}
+        disabled={submitting}
+      >
+        {submitting ? '正在添加...' : '添加任务'}
       </button>
 
       {error && <p className="error-message">{error}</p>}
@@ -177,6 +203,7 @@ function TaskManager({ token, onLogout }) {
   const [currentPage, setCurrentPage] = useState(1)
   const [total, setTotal] = useState(0)
   const [totalPages, setTotalPages] = useState(1)
+  const [reloadVersion, setReloadVersion] = useState(0)
   const totalCount =tasks.length
   const completedCount = tasks.filter((task) => task.done).length
   const unfinishedCount = tasks.filter((task) => !task.done).length
@@ -219,87 +246,112 @@ function TaskManager({ token, onLogout }) {
   })
   
   
-  useEffect(() => {
-    async function loadTasks(){
-      try{
-             const params = new URLSearchParams({
-                 page: String(currentPage),
-                 size: "2",
-                 sort_by: "due_date",
-                 sort_order: "asc",
-            })
+    useEffect(() => {
+    const controller = new AbortController()
+    let active = true
 
-             if (statusFilter === "done") {
-              params.set("done", "true")
-             }
+    async function loadTasks() {
+      setLoading(true)
+      setLoadError('')
 
-            if (statusFilter === "unfinished") {
-              params.set("done", "false")
-            }
+      try {
+        const params = new URLSearchParams({
+          page: String(currentPage),
+          size: '2',
+          sort_by: 'due_date',
+          sort_order: 'asc',
+        })
 
-            if (priorityFilter !== "all") {
-              params.set("priority", priorityFilter)
-            }
+        if (statusFilter !== 'all') {
+          params.set('done', String(statusFilter === 'done'))
+        }
 
-            if (dueDateFilter !== "") {
-              params.set("due_date", dueDateFilter)
-            }
+        if (priorityFilter !== 'all') {
+          params.set('priority', priorityFilter)
+        }
 
-            const response = await fetchWithAuth(
-              `http://127.0.0.1:8000/tasks?${params.toString()}`
-            )        
+        if (dueDateFilter !== '') {
+          params.set('due_date', dueDateFilter)
+        }
 
-        if(!response.ok){
+        const response = await fetchWithAuth(
+          `http://127.0.0.1:8000/tasks?${params.toString()}`,
+          { signal: controller.signal }
+        )
+
+        if (!response.ok) {
           throw new Error('读取任务失败')
         }
 
-        const data =await response.json()
+        const data = await response.json()
+
+        if (!active) return
+
+        const lastPage = Math.max(1, data.total_pages)
+
+        if (currentPage > lastPage) {
+          setCurrentPage(lastPage)
+          return
+        }
+
         setTasks(data.items)
         setTotal(data.total)
         setTotalPages(data.total_pages)
-      }catch{
-        setLoadError('任务加载失败，请确认后端是否已启动')
-      }finally{
-        setLoading(false)
+      } catch {
+        if (active) {
+          setLoadError('任务加载失败，请确认后端是否已启动')
+        }
+      } finally {
+        if (active) {
+          setLoading(false)
+        }
       }
     }
 
     loadTasks()
-    }, [
+
+    return () => {
+      active = false
+      controller.abort()
+    }
+  }, [
     currentPage,
     statusFilter,
     priorityFilter,
     dueDateFilter,
     fetchWithAuth,
+    reloadVersion,
   ])
 
-  async  function addTask(name, priority, dueDate) {
-     setActionError('')
-     try{
-         const response = await fetchWithAuth('http://127.0.0.1:8000/tasks',{
-         method :'POST',
-         headers:{
-            'Content-Type':'application/json',
-         },      
-         body: JSON.stringify({
-            name:name,
-            done:false,
-            priority: priority,
+    async function addTask(name, priority, dueDate) {
+    setActionError('')
+
+    try {
+      const response = await fetchWithAuth(
+        'http://127.0.0.1:8000/tasks',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            name,
+            done: false,
+            priority,
             due_date: dueDate === '' ? null : dueDate,
-           
+          }),
+        }
+      )
 
-        }),
-     })
-     
-     if (!response.ok) {
-      throw new Error('添加任务失败')
-     } 
+      if (!response.ok) {
+        throw new Error('添加任务失败')
+      }
 
-       const newTask=await response.json()
-    
-      setTasks([...tasks, newTask])
-     }catch{
-     setActionError('添加任务失败，请确认后端是否已启动')
+      setReloadVersion((version) => version + 1)
+      return true
+    } catch {
+      setActionError('添加任务失败，请检查输入内容和后端连接')
+      return false
     }
   }
 
@@ -316,7 +368,8 @@ function TaskManager({ token, onLogout }) {
              throw new Error('删除任务失败')
      }
   
-         setTasks(tasks.filter((task) => task.id !== id))
+         setReloadVersion((version) => version + 1)
+
       }catch{
         setActionError('删除任务失败，请确认后端是否已启动')
       } 
@@ -349,16 +402,8 @@ function TaskManager({ token, onLogout }) {
                   throw new Error('切换状态失败')
               }
 
-           const updatedTask = await response.json()
+           setReloadVersion((version) => version + 1)
 
-           setTasks(
-                tasks.map((task) =>{
-                if (task.id===id){
-                     return { ...task, ...updatedTask }
-                }
-                return task
-                })
-              ) 
            }catch{
             setActionError('切换状态失败，请确认后端是否已启动')
            }
@@ -390,17 +435,7 @@ function TaskManager({ token, onLogout }) {
       throw new Error('修改任务失败')
     }
     
-   const updatedTask = await response.json()
-  
-   setTasks(
-      tasks.map((task) => {
-        if (task.id === id) {
-          return { ...task, ...updatedTask }
-        }
-
-        return task
-      })
-    )
+   setReloadVersion((version) => version + 1)
 
     setEditingTask(null)
    } catch {
