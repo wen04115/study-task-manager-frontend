@@ -28,7 +28,7 @@ export default function LoginForm({ onLogin }) {
       const endpoint = isRegister ? 'register' : 'login'
 
       const response = await fetch(
-        `http://127.0.0.1:8000/auth/${endpoint}`,
+        `/api/auth/${endpoint}`,
         {
           method: 'POST',
           headers: {

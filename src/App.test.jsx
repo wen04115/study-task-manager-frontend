@@ -21,16 +21,17 @@ function reply(data, status = 200) {
 }
 
 beforeEach(() => {
+      sessionStorage.clear()
   // 所有请求均被模拟，不连接真实后端。
   fetchMock = vi.fn(async (url, options = {}) => {
-    const path = new URL(url).pathname
+    const path = new URL(url, 'http://localhost').pathname
     const method = options.method || 'GET'
 
-    if (path === '/auth/login' && method === 'POST') {
+    if (path === '/api/auth/login' && method === 'POST') {
       return reply({ access_token: 'test-token' })
     }
 
-    if (path === '/tasks' && method === 'GET') {
+    if (path === '/api/tasks' && method === 'GET') {
       return reply({
         items: [],
         total: 0,
@@ -48,6 +49,7 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup()
+  sessionStorage.clear()
   vi.unstubAllGlobals()
 })
 
@@ -107,7 +109,7 @@ test('新增成功后清空输入并重新读取列表', async () => {
   })
 
   const [url, options] = fetchMock.mock.calls[1]
-  expect(new URL(url).pathname).toBe('/tasks')
+  expect(new URL(url, 'http://localhost').pathname).toBe('/api/tasks')
   expect(options?.method || 'GET').toBe('GET')
 })
 
@@ -142,4 +144,46 @@ test('新增请求未完成时禁止重复提交', async () => {
       screen.getByRole('button', { name: '添加任务' })
     ).toBeEnabled()
   })
+})
+
+test('重新挂载页面后恢复登录', async () => {
+  await openTaskPage()
+
+  expect(sessionStorage.getItem('study_task_token')).toBe('test-token')
+
+  // 卸载并重新挂载，模拟页面重新初始化。
+  cleanup()
+  render(<App />)
+
+  await screen.findByText('暂无任务，添加一个开始。')
+  expect(
+    screen.getByRole('button', { name: '退出登录' })
+  ).toBeInTheDocument()
+})
+
+test('退出登录后清除保存的凭证', async () => {
+  const user = await openTaskPage()
+
+  await user.click(
+    screen.getByRole('button', { name: '退出登录' })
+  )
+
+  expect(sessionStorage.getItem('study_task_token')).toBeNull()
+  expect(
+    screen.getByRole('button', { name: '登录' })
+  ).toBeInTheDocument()
+})
+
+test('恢复的凭证收到401后清除并返回登录页', async () => {
+  sessionStorage.setItem('study_task_token', 'expired-token')
+  fetchMock.mockResolvedValueOnce(reply({}, 401))
+
+  render(<App />)
+
+  await screen.findByText('登录状态已失效，请重新登录')
+
+  expect(sessionStorage.getItem('study_task_token')).toBeNull()
+  expect(
+    screen.getByRole('button', { name: '登录' })
+  ).toBeInTheDocument()
 })

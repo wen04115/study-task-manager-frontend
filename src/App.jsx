@@ -275,7 +275,7 @@ function TaskManager({ token, onLogout }) {
         }
 
         const response = await fetchWithAuth(
-          `http://127.0.0.1:8000/tasks?${params.toString()}`,
+          `/api/tasks?${params.toString()}`,
           { signal: controller.signal }
         )
 
@@ -328,7 +328,7 @@ function TaskManager({ token, onLogout }) {
 
     try {
       const response = await fetchWithAuth(
-        'http://127.0.0.1:8000/tasks',
+        '/api/tasks',
         {
           method: 'POST',
           headers: {
@@ -359,7 +359,7 @@ function TaskManager({ token, onLogout }) {
     setActionError('')
     try{
          const response = await fetchWithAuth(
-           `http://127.0.0.1:8000/tasks/${id}`,
+           `/api/tasks/${id}`,
            {
              method: 'DELETE',
           }
@@ -385,7 +385,7 @@ function TaskManager({ token, onLogout }) {
     setActionError('')
     try{
            const response = await fetchWithAuth(
-                `http://127.0.0.1:8000/tasks/${id}`,
+                `/api/tasks/${id}`,
                 {
                     method :'PATCH',
                     headers:{
@@ -418,7 +418,7 @@ function TaskManager({ token, onLogout }) {
 
    try {
     const response = await fetchWithAuth(
-      `http://127.0.0.1:8000/tasks/${id}`,
+      `/api/tasks/${id}`,
       {
         method: 'PATCH',
         headers: {
@@ -560,10 +560,13 @@ function TaskManager({ token, onLogout }) {
 
 
 function App() {
-  const [token, setToken] = useState('')
+  const [token, setToken] = useState(
+    () => sessionStorage.getItem('study_task_token') || ''
+  )
   const [authMessage, setAuthMessage] = useState('')
 
   const handleLogout = useCallback((message = '') => {
+    sessionStorage.removeItem('study_task_token')
     setToken('')
     setAuthMessage(message)
   }, [])
@@ -579,6 +582,7 @@ function App() {
 
         <LoginForm
           onLogin={(newToken) => {
+            sessionStorage.setItem('study_task_token', newToken)
             setAuthMessage('')
             setToken(newToken)
           }}
